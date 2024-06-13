@@ -1,10 +1,15 @@
 #
 # IntroPyTorch.ipynb의 Example 2: Classification 부분을 Python 파일로 변환한 것이다.
 #
+import sys
 import torch
 import numpy as np
 from sklearn.datasets import make_classification
+from sklearn.model_selection import train_test_split
 from matplotlib import pyplot as plt
+
+import gzip
+import pickle
 
 #
 # 0. 데이터를 시각화하는 함수를 정의한다.
@@ -34,24 +39,28 @@ def plot_dataset(features, labels, W=None, b=None):
 
 #
 # 1. 데이터를 준비한다.
-# 1-1. 데이터를 생성한다.
-np.random.seed(0) # pick the seed for reproducibility - change it to explore the effects of random variations
+with gzip.open('../lessons/data/mnist.pkl.gz', 'rb') as mnist_pickle:
+    MNIST = pickle.load(mnist_pickle)
 
-n = 100
-# 정규 분포를 갖는 두 개의 특성(0, 1)을 갖는 데이터를 생성한다.
-# flip_y=0.1은 10%의 노이즈를 추가한다.
-# class_sep은 두 클래스의 분리 정도를 결정한다.
-# n_informative=2는 두 개의 특성이 클래스를 결정하는 데 중요하다는 것을 의미한다.
-X, Y = make_classification(n_samples = n, n_features=2,
-                           n_redundant=0, n_informative=2, flip_y=0.1,class_sep=1.5)
-X = X.astype(np.float32)
-Y = Y.astype(np.int32)
+X = MNIST['Train']['Features'] / 255.0
+Y = MNIST['Train']['Labels']
+assert X.shape == (42000, 784)
+assert Y.shape == (42000,)
 
 #
 # 1-2. 70%의 데이터를 훈련 데이터로, 15%의 데이터를 검증 데이터로, 나머지 15%를 테스트 데이터로 사용한다.
-split = [ 70*n//100, (15+70)*n//100 ]
-train_x, valid_x, test_x = np.split(X, split)
-train_labels, valid_labels, test_labels = np.split(Y, split)
+# n = 42000
+# split = [ 70*n//100, (15+70)*n//100 ]
+# train_x, valid_x, test_x = np.split(X, split)
+# train_labels, valid_labels, test_labels = np.split(Y, split)
+# print(train_x.shape, valid_x.shape, test_x.shape)
+# print(train_labels.shape, valid_labels.shape, test_labels.shape)
+
+train_x, valid_x, train_labels, valid_labels = train_test_split(X, Y, test_size=0.2)
+assert train_x.shape == (33600, 784)
+assert valid_x.shape == (8400, 784)
+assert train_labels.shape == (33600,)
+assert valid_labels.shape == (8400,)
 
 #
 # 1-3. 데이터를 시각화한다.
@@ -59,7 +68,7 @@ train_labels, valid_labels, test_labels = np.split(Y, split)
 
 #
 # 1-4. 데이터를 PyTorch의 Tensor로 변환한다.
-dataset = torch.utils.data.TensorDataset(torch.tensor(train_x),torch.tensor(train_labels,dtype=torch.float32))
+dataset = torch.utils.data.TensorDataset(torch.tensor(train_x, dtype=torch.float32), torch.tensor(train_labels,dtype=torch.float32))
 # DataLoader의 역할은 데이터를 미니배치로 나누어주는 것이다.
 dataloader = torch.utils.data.DataLoader(dataset,batch_size=16)
 
@@ -67,7 +76,7 @@ dataloader = torch.utils.data.DataLoader(dataset,batch_size=16)
 # 2. 신경망을 정의한다.
 class Network():
   def __init__(self):
-     self.W = torch.randn(size=(2,1),requires_grad=True)
+     self.W = torch.randn(size=(784,1),requires_grad=True)
      self.b = torch.zeros(size=(1,),requires_grad=True)
 
   def forward(self,x):
@@ -112,4 +121,4 @@ for epoch in range(15):
 
 print(net.W,net.b)
 
-plot_dataset(train_x, train_labels, net.W.detach().numpy(), net.b.detach().numpy())
+# plot_dataset(train_x, train_labels, net.W.detach().numpy(), net.b.detach().numpy())
