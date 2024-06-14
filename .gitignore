@@ -366,3 +366,5 @@ MigrationBackup/
 
 # Mac-specific
 .DS_Store
+
+*logs/
