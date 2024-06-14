@@ -1,124 +1,100 @@
 #
-# IntroPyTorch.ipynb의 Example 2: Classification 부분을 Python 파일로 변환한 것이다.
+# MNIST 문제를 PyTorch로 풀어보자.
 #
-import sys
-import torch
-import numpy as np
-from sklearn.datasets import make_classification
-from sklearn.model_selection import train_test_split
-from matplotlib import pyplot as plt
-
 import gzip
 import pickle
-
-#
-# 0. 데이터를 시각화하는 함수를 정의한다.
-def plot_dataset(features, labels, W=None, b=None):
-    # prepare the plot
-    fig, ax = plt.subplots(1, 1)
-    ax.set_xlabel('$x_i[0]$ -- (feature 1)')
-    ax.set_ylabel('$x_i[1]$ -- (feature 2)')
-    colors = ['r' if l else 'b' for l in labels]
-    ax.scatter(features[:, 0], features[:, 1], marker='o', c=colors, s=100, alpha = 0.5)
-    if W is not None:
-        min_x = min(features[:,0])
-        max_x = max(features[:,0])
-        min_y = min(features[:,1])*(1-.1)
-        max_y = max(features[:,1])*(1+.1)
-        cx = np.array([min_x,max_x],dtype=np.float32)
-        # W[0]*x + W[1]*y + b = 0.5
-        # 0.5를 기준으로 0, 1에 가까운 쪽으로 구분한다.
-        cy = (0.5-W[0]*cx-b)/W[1]
-        ax.plot(cx,cy,'g')
-        ax.set_ylim(min_y,max_y)
-    # fig.show()
-    # ipynb가 아닌 경우에는 아래 코드를 사용한다.
-    plt.show()
-    # plt.draw()
-    # plt.pause(3)  # 0.001초 동안 그래프를 표시하고 코드 실행을 계속
+import torch
+import matplotlib.pyplot as plt
 
 #
 # 1. 데이터를 준비한다.
 with gzip.open('../lessons/data/mnist.pkl.gz', 'rb') as mnist_pickle:
     MNIST = pickle.load(mnist_pickle)
 
-X = MNIST['Train']['Features'] / 255.0
-Y = MNIST['Train']['Labels']
-assert X.shape == (42000, 784)
-assert Y.shape == (42000,)
+data = MNIST['Train']['Features']
+labels = MNIST['Train']['Labels']
+assert data.shape == (42000, 784)
+assert labels.shape == (42000,)
 
-#
-# 1-2. 70%의 데이터를 훈련 데이터로, 15%의 데이터를 검증 데이터로, 나머지 15%를 테스트 데이터로 사용한다.
-# n = 42000
-# split = [ 70*n//100, (15+70)*n//100 ]
-# train_x, valid_x, test_x = np.split(X, split)
-# train_labels, valid_labels, test_labels = np.split(Y, split)
-# print(train_x.shape, valid_x.shape, test_x.shape)
-# print(train_labels.shape, valid_labels.shape, test_labels.shape)
 
-train_x, valid_x, train_labels, valid_labels = train_test_split(X, Y, test_size=0.2)
-assert train_x.shape == (33600, 784)
-assert valid_x.shape == (8400, 784)
-assert train_labels.shape == (33600,)
-assert valid_labels.shape == (8400,)
+# 데이터를 Tensor로 변환
+features = torch.tensor(data, dtype=torch.float32) / 255.0  # 0 ~ 1 범위로 정규화
+labels = torch.tensor(labels, dtype=torch.long)
 
-#
-# 1-3. 데이터를 시각화한다.
-# plot_dataset(train_x, train_labels)
+# 데이터셋을 훈련 및 검증용으로 분할
+dataset = torch.utils.data.TensorDataset(features, labels)
+train_size = int(0.8 * len(dataset))
+test_size = len(dataset) - train_size
+train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
 
-#
-# 1-4. 데이터를 PyTorch의 Tensor로 변환한다.
-dataset = torch.utils.data.TensorDataset(torch.tensor(train_x, dtype=torch.float32), torch.tensor(train_labels,dtype=torch.float32))
-# DataLoader의 역할은 데이터를 미니배치로 나누어주는 것이다.
-dataloader = torch.utils.data.DataLoader(dataset,batch_size=16)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=210, shuffle=True)
+test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=210, shuffle=False)
 
-#
-# 2. 신경망을 정의한다.
-class Network():
-  def __init__(self):
-     self.W = torch.randn(size=(784,1),requires_grad=True)
-     self.b = torch.zeros(size=(1,),requires_grad=True)
+# 모델 정의
+class SimpleNN(torch.nn.Module):
+    def __init__(self, hidden_size=2352):
+        super(SimpleNN, self).__init__()
+        # 784 -> 2352 -> 10
+        self.fc1 = torch.nn.Linear(28*28, hidden_size)
+        self.tanh = torch.nn.Tanh()
+        self.fc2 = torch.nn.Linear(hidden_size, 10)
+        self.softmax = torch.nn.Softmax(dim=1)
 
-  def forward(self,x):
-    return torch.matmul(x,self.W)+self.b
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.tanh(x)
+        x = self.fc2(x)
+        x = self.softmax(x)
+        return x
 
-  def zero_grad_original(self):
-    self.W.data.zero_()
-    self.b.data.zero_()
+model = SimpleNN()
 
-  # chatGPT가 수정 권고한 코드
-  def zero_grad(self):
-    if self.W.grad is not None:
-      self.W.grad.zero_()
-    if self.b.grad is not None:
-      self.b.grad.zero_()
+# 손실 함수 및 옵티마이저 설정
+criterion = torch.nn.CrossEntropyLoss()
+optimizer = torch.optim.SGD(model.parameters(), lr=0.035)
 
-  def update(self,lr=0.1):
-    self.W.data.sub_(lr*self.W.grad)
-    self.b.data.sub_(lr*self.b)
+# 모델 학습
+num_epochs = 10
+train_acc_list, val_acc_list = [], []
 
-net = Network()
+for epoch in range(num_epochs):
+    model.train()
+    running_loss = 0.0
+    correct_train = 0
+    total_train = 0
+    for inputs, labels in train_loader:
+        optimizer.zero_grad()
+        outputs = model(inputs)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
+        
+        running_loss += loss.item()
+        _, predicted = torch.max(outputs, 1)
+        correct_train += (predicted == labels).sum().item()
+        total_train += labels.size(0)
+    
+    train_acc = correct_train / total_train
+    train_acc_list.append(train_acc)
+    
+    model.eval()
+    correct_test = 0
+    total_test = 0
+    with torch.no_grad():
+        for inputs, labels in test_loader:
+            outputs = model(inputs)
+            _, predicted = torch.max(outputs, 1)
+            correct_test += (predicted == labels).sum().item()
+            total_test += labels.size(0)
+    
+    val_acc = correct_test / total_test
+    val_acc_list.append(val_acc)
+    
+    print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {running_loss/len(train_loader):.4f}, '
+          f'Train Accuracy: {train_acc:.4f}, Validation Accuracy: {val_acc:.4f}')
 
-#
-# 3. 신경망을 훈련한다.
-# 3-1. 한 번의 미니배치에 대한 훈련을 수행하는 함수를 정의한다.
-def train_on_batch(net, x, y):
-  z = net.forward(x).flatten()
-  loss = torch.nn.functional.binary_cross_entropy_with_logits(input=z,target=y)
-  net.zero_grad()
-  # net.W.grad, net.b.grad를 계산한다.
-  loss.backward()
-  # net.W.data, net.b.data를 업데이트한다.
-  net.update()
-  return loss
-
-#
-# 3-2. 15번의 에포크 동안 훈련을 수행한다.
-for epoch in range(15):
-  for (x, y) in dataloader:
-    loss = train_on_batch(net,x,y)
-  print('Epoch %d: last batch loss = %.4f' % (epoch, float(loss)))
-
-print(net.W,net.b)
-
-# plot_dataset(train_x, train_labels, net.W.detach().numpy(), net.b.detach().numpy())
+# 학습 결과 시각화
+plt.plot(train_acc_list, label='Train Accuracy')
+plt.plot(val_acc_list, label='Validation Accuracy')
+plt.legend()
+plt.show()

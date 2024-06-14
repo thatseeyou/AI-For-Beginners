@@ -12,19 +12,28 @@ from sklearn.model_selection import train_test_split
 with gzip.open('../lessons/data/mnist.pkl.gz', 'rb') as mnist_pickle:
     MNIST = pickle.load(mnist_pickle)
 
-labels = MNIST['Train']['Labels']
 data = MNIST['Train']['Features']
+labels = MNIST['Train']['Labels']
+assert data.shape == (42000, 784)
+assert labels.shape == (42000,)
 
 # 일부 데이터(20%)는 검증용으로 사용한다.
-features_train, features_test, labels_train, labels_test = train_test_split(data,labels,test_size=0.2)
-print(f"Train samples: {len(features_train)}, test samples: {len(features_test)}")
+train_features, test_features, train_labels, test_labels = train_test_split(data,labels,test_size=0.2)
+assert train_features.shape == (33600, 784)
+assert train_labels.shape == (33600, )
+assert test_features.shape == (8400, 784)
+assert test_labels.shape == (8400, )
+
+# 0 ~ 1의 범위로 정규화
+train_features_norm = train_features / 255.0
+test_features_norm = test_features / 255.0
 
 #
 # 첫 번째 data의 내용을 보기 좋게 출력한다.
-matrix = features_train[0].reshape(28, 28) 
+matrix = train_features[0].reshape(28, 28) 
 for i in range(matrix.shape[0]):
     print(' '.join(format(x, '3') for x in matrix[i, :28]))
-print(labels_train[0])
+print(train_labels[0])
 
 #
 # 2. 자체 프레임워크를 정의한다.
@@ -134,20 +143,18 @@ def train_epoch(net, train_x, train_labels, loss=CrossEntropyLoss(), batch_size=
 
 #
 # 3-1. 모델 1
-net = Net()
-net.add(Linear(784,10))
-net.add(Softmax())
-loss = CrossEntropyLoss()
+# net = Net()
+# net.add(Linear(784,10))
+# net.add(Softmax())
+# loss = CrossEntropyLoss()
 
-print("Initial loss={}, accuracy={}: ".format(*get_loss_acc(features_train, labels_train)))
-train_epoch(net, features_train, labels_train, batch_size=84, lr=0.1)      
-print("Final loss={}, accuracy={}: ".format(*get_loss_acc(features_train, labels_train)))
-print("Test loss={}, accuracy={}: ".format(*get_loss_acc(features_test, labels_test)))
-
-middle, batch_size, lr = 2352, 210, 0.035 # 0.92
+# print("Initial loss={}, accuracy={}: ".format(*get_loss_acc(train_features_norm, train_labels)))
+# train_epoch(net, train_features_norm, train_labels, batch_size=84, lr=0.1)      
+# print("Final loss={}, accuracy={}: ".format(*get_loss_acc(train_features_norm, tain_labels)))
+# print("Test loss={}, accuracy={}: ".format(*get_loss_acc(test_features_norm, test_labels)))
 
 #
-# 3-2. 모델 1
+# 3-2. 모델 2
 #
 # 입력, 출력 수는 유지하면서 히든 레이어의 입출력수는 조정하면서 테스트한다.
 #
@@ -159,13 +166,18 @@ net.add(Linear(middle,10))
 net.add(Softmax())
 loss = CrossEntropyLoss()
 
-print("Initial loss={}, accuracy={}: ".format(*get_loss_acc(features_train, labels_train)))
-train_epoch(net, features_train, labels_train, batch_size=batch_size, lr=lr)      
-print("Final loss={}, accuracy={}: ".format(*get_loss_acc(features_train, labels_train)))
-print("Test loss={}, accuracy={}: ".format(*get_loss_acc(features_test, labels_test)))
+print("Initial loss={}, accuracy={}: ".format(*get_loss_acc(train_features_norm, train_labels)))
+train_epoch(net, train_features_norm, train_labels, batch_size=batch_size, lr=lr)      
+print("Final loss={}, accuracy={}: ".format(*get_loss_acc(train_features_norm, train_labels)))
+print("Test loss={}, accuracy={}: ".format(*get_loss_acc(test_features_norm, test_labels)))
+train_epoch(net, train_features_norm, train_labels, batch_size=batch_size, lr=lr)      
+print("Final loss={}, accuracy={}: ".format(*get_loss_acc(train_features_norm, train_labels)))
+print("Test loss={}, accuracy={}: ".format(*get_loss_acc(test_features_norm, test_labels)))
+
+sys.exit(0)
 
 #
-# 3-3. 모델 2
+# 3-3. 모델 3
 middle1, middle2, batch_size, lr = 2352, 4704, 210, 0.035 # 0.92
 
 net = Net()
@@ -177,7 +189,7 @@ net.add(Linear(middle2,10))
 net.add(Softmax())
 loss = CrossEntropyLoss()
 
-print("Initial loss={}, accuracy={}: ".format(*get_loss_acc(features_train, labels_train)))
-train_epoch(net, features_train, labels_train, batch_size=batch_size, lr=lr)      
-print("Final loss={}, accuracy={}: ".format(*get_loss_acc(features_train, labels_train)))
-print("Test loss={}, accuracy={}: ".format(*get_loss_acc(features_test, labels_test)))
+print("Initial loss={}, accuracy={}: ".format(*get_loss_acc(train_features_norm, train_labels)))
+train_epoch(net, train_features_norm, train_labels, batch_size=batch_size, lr=lr)      
+print("Final loss={}, accuracy={}: ".format(*get_loss_acc(train_features_norm, train_labels)))
+print("Test loss={}, accuracy={}: ".format(*get_loss_acc(test_features_norm, test_labels)))
