@@ -29,14 +29,14 @@ def extract_faces_from_images(image_dir, annotation_dir, output_dir):
             image_path = os.path.join(image_dir, image_filename)
             image = cv2.imread(image_path)
 
-            breed_name = "_".join(image_filename.split('_')[:-1])
-            breed_dir = os.path.join(output_dir, breed_name)
-            if not os.path.exists(breed_dir):
-                os.makedirs(breed_dir)
-            
             for obj in root.iter('object'):
                 name = obj.find('name').text
                 if name == 'cat' or name == 'dog':
+                    breed_name = "_".join(image_filename.split('_')[:-1])
+                    breed_dir = os.path.join(output_dir, f"{name}_{breed_name}")
+                    if not os.path.exists(breed_dir):
+                        os.makedirs(breed_dir)
+            
                     bbox = obj.find('bndbox')
                     xmin = int(bbox.find('xmin').text)
                     ymin = int(bbox.find('ymin').text)
