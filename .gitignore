@@ -368,3 +368,5 @@ MigrationBackup/
 .DS_Store
 
 *logs/
+
+lessons/4-ComputerVision/08-TransferLearning/data
